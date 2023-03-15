@@ -1,0 +1,298 @@
+import Layout from '~/layouts/DefaultGuideLayout'
+
+export const meta = {
+  id: 'fusionauth',
+  title: 'FusionAuth',
+  description:
+    'Swap out Supabase authentication with FusionAuth. Let FusionAuth handle tokens and signing users in and out, while Supabase enforces authorization policies with Row Level Security (RLS).',
+}
+
+[FusionAuth](https://fusionauth.io) is the authentication and authorization platform built for developers, by developers, which solves the problem of building essential user security without distracting from the primary application.
+
+In this article, you will see how to build a simple web application to list calendar events using FusionAuth, Supabase, and Next.js, a web application framework built on top of React. We will use FusionAuth to handle user authentication and issue a JWT that will be used by Supabase's [Row Level Security (RLS)](https://www.postgresql.org/docs/current/ddl-rowsecurity.html) policies to only return events from that specific user.
+
+## Step 1: Setting up a Next.js application with FusionAuth
+
+> @FIXME: extract important parts from this blog post into this step
+
+Since the scope of this guide is limited to the integration between FusionAuth and Supabase, you can refer to [this blog post on how to create a Next.js application with FusionAuth](https://fusionauth.io/blog/2023/02/10/nextjs-single-sign-on).
+
+Once you are done configuring the app, add `@supabase/supabase-js` as a dependency to the project by running the command below.
+
+```shell
+$ npm install @supabase/supabase-js
+```
+
+### Demo application
+
+If you just want to have a working application, you can clone this [GitHub repository](https://github.com/FusionAuth/fusionauth-example-supabase) and skip to [Step 11: Configuring environment variables](#step-9-configuring-environment-variables).
+
+```shell
+$ git clone git@github.com:FusionAuth/fusionauth-example-supabase.git
+```
+
+## Step 2: Creating an API Key in FusionAuth
+
+To allow calling the FusionAuth API from your application, navigate to `Settings > API Keys` in your instance and click the green `+` icon to add a new API Key. In the `Endpoints` table, enable POST for the `/api/jwt/vend` resource and save it by clicking the blue floppy disk icon.
+
+![Creating new API Key](/docs/img/guides/integrations/fusionauth/api-key-vend-jwt.png)
+
+## Step 3: Creating a project in Supabase
+
+Log in to your [Supabase account](https://app.supabase.com/), and click `New project`. Enter a **Name** for your project, a secure **Database Password** and click `Create new project` to save it. It may take a couple of minutes for your project to be provisioned.
+
+![New Supabase project settings](/docs/img/guides/integrations/fusionauth/new-project.png)
+
+## Step 4: Creating a table and inserting data
+
+Click the [Table editor](https://app.supabase.com/project/_/editor) icon in the sidebar menu and select `Create a new table`.
+
+1. Name it `events`
+2. Make sure **Enable Row Level Security (RLS)** is checked _(you'll see more about this in the next step)_
+3. For every field below, click `Add column`, fill in the name and click the cog icon to edit its properties and uncheck **Is Nullable**
+    | Field     | Type        |
+    |-----------|-------------|
+    | `title`   | text        |
+    | `date`    | timestamptz |
+    | `user_id` | text        |
+4. Click **Save**
+
+![Creating table](/docs/img/guides/integrations/fusionauth/create-table.png)
+
+To make things simpler, we won't go through how to insert data into your Supabase table via your web application, but you can take a look [at these docs](https://supabase.com/docs/reference/javascript/insert). To populate your table, you'll have to manually insert data into it.
+
+Before doing this, you need to grab the **User Ids** from your FusionAuth instance, by going to **Users** and clicking **Manage** *(the blueish card icon)* to see the details for a user.
+
+![Users page](/docs/img/guides/integrations/fusionauth/users-manage.png)
+
+Copy the **User Id** from that page.
+
+![User details page](/docs/img/guides/integrations/fusionauth/user-id.png)
+
+Go back to your Supabase dashboard, click [Table editor](https://app.supabase.com/project/_/editor) in the main navigation and select the `events` table in the second sidebar that appeared. Click the `Insert` green button and select `Insert row` to create a new record.
+
+- Leave the `id` empty.
+- Fill something in the `title`.
+- Select any `date`.
+- Paste the **User Id** you copied from FusionAuth in `user_id`.
+- Click `Save`.
+
+You should repeat these steps and insert at least one more record for a different user.
+
+![Inserting row in Supabase](/docs/img/guides/integrations/fusionauth/insert-row.png)
+
+## Step 5: Writing a Row Level Security policy
+
+[Row Level Security (RLS)](https://www.postgresql.org/docs/current/ddl-rowsecurity.html) is a feature from PostgreSQL that restricts which rows can be returned or modified by queries according to the logged in user. This is possible by creating a *Policy*, that is an expression that evaluates to a Boolean value and can be specified to apply to `ALL` commands, or to `SELECT`, `INSERT`, `UPDATE`, or `DELETE`.
+
+For this application, you'll need to extract the `User Id` from the session JWT. Create an SQL function by clicking [SQL editor](https://app.supabase.com/project/_/sql) in the sidebar, pasting the contents below and hitting `RUN`.
+
+```sql
+CREATE OR REPLACE FUNCTION get_user_id_from_jwt() RETURNS text AS $$
+SELECT NULLIF(current_setting('request.jwt.claims', true)::json->>'sub', '')::text;
+$$ LANGUAGE SQL stable;
+```
+
+This will create a `get_user_id_from_jwt()` function that extracts the `sub` claim from the current session JWT, which is where your application will store the `User Id` in. Now, you need to create a policy by navigating to `Authentication > Policies`, clicking `New policy` for your `events` table, and selecting `For full customization` to create a policy from scratch.
+
+Give it a meaningful name, like *"Users can only manage their own events"*, select `ALL` as **Allowed operation** and set both **USING expression** and **WITH CHECK expression** as `get_user_id_from_jwt() = user_id` to call the function created above to extract the **User Id** and match it against the table's `user_id` column. Click `Review` and finally `Save policy` to finish editing it.
+
+![Creating RLS policy](/docs/img/guides/integrations/fusionauth/rls-policy.png)
+
+## Step 6: Grabbing API settings
+
+Click `Project Settings` in the sidebar and select the `API` menu in the navigation menu that opened. You'll have to write down these three values from this page that will be later used when [configuring environment variables](#step-9-configuring-environment-variables):
+
+1. `URL` from the Project URL section.
+2. `anon public key` from Project API keys.
+3. `JWT Secret` from JWT Settings _(you need to click the `Reveal` button to display this information)_.
+
+![Supabase API settings](/docs/img/guides/integrations/fusionauth/api-settings.png)
+
+## Step 7: Issuing JWTs with Supabase's key
+
+To issue a JWT that Supabase can trust, we need to import your project secret to your FusionAuth instance by browsing to `Settings > Key Master` and selecting `Import HMAC` in the top right button.
+
+- Name it `My Supabase JWT Secret`, for instance.
+- Paste the contents from the `JWT Secret` you copied earlier.
+- You can leave other options as they are.
+- Click `Save`.
+- Write down the `Id` for the generated key, as you'll need it later.
+
+<video width="99%" loop={true} muted={true} playsInline={true} controls={true}>
+  <source src="/docs/img/guides/integrations/fusionauth/key-master-jwt.mp4" type="video/mp4"/>
+</video>
+
+ To do this, change `src/pages/api/auth/[...nextauth].js` to add some [callbacks](https://next-auth.js.org/configuration/callbacks), which are ways of personalizing your NextAuth.js session. We have provided some comments directly in the code below to better explain what is going on.
+
+```jsx
+import FusionAuthClient from '@/utils/fusionauth';
+
+export const authOptions = {
+  /* Maintain providerOptions as it is */
+  callbacks: {
+    async jwt({ token }) {
+      if (!token.accessToken) {
+        /**
+         * Creating a new JWT for Supabase and using their claims as base
+         * @link https://supabase.com/docs/learn/auth-deep-dive/auth-deep-dive-jwts
+         * @link https://supabase.com/docs/learn/auth-deep-dive/auth-policies
+         * @type {string}
+         */
+         try {
+           const vending = await FusionAuthClient.vendJWT({
+             claims: {
+               // You can change this to your app name
+               iss: 'My Supabase application',
+               // The sub claim is usually what we use to match the JWT to rows in your database
+               sub: token.sub,
+               // The authenticated role is special in Supabase, it tells the API that this is an authenticated user
+               // and will know to compare the JWT against any policies you've added to the requested resource (table or row).
+               aud: 'authenticated',
+            },
+            keyId: process.env.FUSIONAUTH_JWT_KEY_ID,
+            timeToLiveInSeconds: 3600, // 1 hour
+           });
+           token.accessToken = vending.response.token;
+         } catch (err) {
+           console.error('Error issuing JWT', err);
+         }
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      // Grabbing the Access Token we generated in the callback above
+      session.accessToken = token.accessToken;
+
+      return session;
+    },
+  },
+}
+```
+
+With these changes, the session object now has an `accessToken` property containing the JWT that Supabase needs.
+
+## Step 8: Fetching data from Supabase
+
+Create a `src/utils/supabase.js` file to return a Supabase client by informing your account URL, the anon public key and the JWT you generated in the previous step. These values will actually be stored in environment variables, which will be configured soon.
+
+```jsx
+import {createClient} from '@supabase/supabase-js';
+
+const createSupabaseClient = (accessToken = null) => {
+  const options = {};
+  if (accessToken) {
+    options.global = {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    };
+  }
+
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    options,
+  );
+};
+
+export {createSupabaseClient};
+```
+
+You should fetch rows from your Supabase tables and pass them to the frontend page using Next's `getServerSideProps()` hook. Change `src/pages/index.js` and add the code below to check if the current session is valid and whether it has the issued JWT from before. If so, it'll call the Supabase API to retrieve data from the `events` table we created in the beginning of this article.
+
+```jsx
+import {authOptions} from '@/pages/api/auth/[...nextauth]';
+import {createSupabaseClient} from '@/utils/supabase';
+import {getServerSession} from 'next-auth/next';
+import {useSession} from 'next-auth/react';
+
+export async function getServerSideProps ({ req, res }) {
+  // Checking current session
+  const session = await getServerSession(req, res, authOptions);
+  if ((!session) || (!session.accessToken)) {
+    return {
+      props: {},
+    };
+  }
+
+  // Retrieving data from Supabase API
+  const supabase = createSupabaseClient(session.accessToken);
+  const response = await supabase.from('events').select('*');
+
+  // Passing records to the Home component in an "events" property
+  return {
+    props: {
+      events: response.data
+    },
+  };
+}
+```
+
+In that same file, the `Home` component will have to check whether there are `events` being passed as a property and build a table with the records. To keep the code clean, we'll create another function, called `renderTable()`, to actually render it.
+
+```jsx
+const renderTable = (events) => {
+  if (!Array.isArray(events)) {
+    return null;
+  }
+  return (
+    <div style={{marginTop: "20px"}}>
+      <h2>Rows</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Id</th>
+            <th>Title</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {events.map((event) => (
+            <tr key={event.id}>
+              <td>{event.id}</td>
+              <td>{event.title}</td>
+              <td>{event.date}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export default function Home ({ events }) {
+  const { data: session } = useSession();
+  return (
+    /* ... */
+    <main>
+      <LoginButton />
+      {session && renderTable(events)}
+    </main>
+    /* ... */
+  )
+}
+```
+
+## Step 9: Configuring environment variables
+
+As part of the process of setting up your Next.js application from FusionAuth's [Adding single sign-on to a Next.js app using OIDC](https://fusionauth.io/blog/2023/02/10/nextjs-single-sign-on) blog post, you should have already created a `.env.local` file. Now, it's time to paste the information you copied from both the Supabase API settings and your FusionAuth instance earlier, by adding the variables below and replacing everything that is quoted with the actual value.
+
+```dotenv
+FUSIONAUTH_API_KEY="<Your FusionAuth API Key>"
+FUSIONAUTH_JWT_KEY_ID="<Key Id for the imported HMAC secret in the Key Master>"
+NEXT_PUBLIC_SUPABASE_URL="<URL from Project URL>"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="<anon public key from Project API keys>"
+```
+
+## Testing
+
+It's finally time to wrap everything up and test the application! Start the web server by running `npm run dev` and browse to [localhost:3000](http://localhost:3000). Click Log in to be redirected to the FusionAuth login page. Fill in the credentials from one of the users you have inserted data to Supabase and you should be back to your application with a list of the events belonging to them. To check if everything is working accordingly, click Log out and repeat the same process using another user, and you should see a different set of events being listed.
+
+By implementing insert, update and delete operations, you should have a working application that can use all of FusionAuth power to manage your users without having to worry about handling authentication and authorization anymore.
+
+## Resources
+
+export const Page = ({ children }) => <Layout meta={meta} children={children} />
+
+export default Page

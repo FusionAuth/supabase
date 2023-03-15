@@ -309,6 +309,7 @@ export const menuItems: NavMenu = {
             { name: 'Auth0', url: '/guides/integrations/auth0', items: [] },
             { name: 'Authsignal', url: '/guides/integrations/authsignal', items: [] },
             { name: 'Clerk', url: '/guides/integrations/clerk', items: [] },
+            { name: 'FusionAuth', url: '/guides/integrations/fusionauth', items: [] },
             { name: 'keyri', url: '/guides/integrations/keyri', items: [] },
             { name: 'Picket', url: '/guides/integrations/picket', items: [] },
             { name: 'Stytch', url: '/guides/integrations/stytch', items: [] },

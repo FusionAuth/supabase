@@ -828,6 +828,7 @@ export const integrations = {
         },
         { name: 'Authsignal', url: '/guides/integrations/authsignal', items: [] },
         { name: 'Clerk', url: '/guides/integrations/clerk', items: [] },
+        { name: 'FusionAuth', url: '/guides/integrations/fusionauth', items: [] },
         { name: 'keyri', url: '/guides/integrations/keyri', items: [] },
         { name: 'Stytch', url: '/guides/integrations/stytch', items: [] },
         { name: 'SuperTokens', url: '/guides/integrations/supertokens', items: [] },
