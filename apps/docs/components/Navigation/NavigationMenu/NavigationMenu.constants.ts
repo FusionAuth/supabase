@@ -1212,6 +1212,7 @@ export const integrations: NavMenuConstant = {
         },
         { name: 'Authsignal', url: '/guides/integrations/authsignal' },
         { name: 'Clerk', url: '/guides/integrations/clerk' },
+        { name: 'FusionAuth', url: '/guides/integrations/fusionauth', items: [] },
         { name: 'keyri', url: '/guides/integrations/keyri' },
         { name: 'Passage', url: '/guides/integrations/passage' },
         { name: 'Stytch', url: '/guides/integrations/stytch' },
