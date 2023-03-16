@@ -7,21 +7,21 @@ export const meta = {
     'Swap out Supabase authentication with FusionAuth. Let FusionAuth handle tokens and signing users in and out, while Supabase enforces authorization policies with Row Level Security (RLS).',
 }
 
-[FusionAuth](https://fusionauth.io) is the authentication and authorization platform built for developers, by developers, which solves the problem of building essential user security without distracting from the primary application.
+[FusionAuth](https://fusionauth.io) is the authentication and authorization platform built for developers, by developers. It solves the problem of building essential user security without distracting from the primary application.
 
-In this article, you will see how to build a simple web application to list calendar events using FusionAuth, Supabase, and Next.js, a web application framework built on top of React. We will use FusionAuth to handle user authentication and issue a JWT that will be used by Supabase's [Row Level Security (RLS)](https://www.postgresql.org/docs/current/ddl-rowsecurity.html) policies to only return events from that specific user.
+In this article, you will see how to build a simple web application to list events using FusionAuth, Supabase, and Next.js, a web application framework built on top of React. We will use FusionAuth to handle user authentication and issue a JWT that will be used by Supabase's [Row Level Security (RLS)](https://www.postgresql.org/docs/current/ddl-rowsecurity.html) policies to only return events from that specific user.
 
 ## Step 1: Configuring FusionAuth
 
-If you don't have a FusionAuth instance already, go through the [5-Minute Setup Guide](https://fusionauth.io/docs/v1/tech/5-minute-setup-guide) to install FusionAuth in your machine. You have a few ways of doing so, but we recommend the [Docker](https://fusionauth.io/docs/v1/tech/getting-started/5-minute-docker) approach.
+If you don't have a FusionAuth instance already, go through the [5-Minute Setup Guide](https://fusionauth.io/docs/v1/tech/5-minute-setup-guide) to install FusionAuth in your machine. You have a few ways of doing so, but we recommend [using Docker](https://fusionauth.io/docs/v1/tech/getting-started/5-minute-docker).
 
-### Set up the application
+In your FusionAuth administration interface, browse to **Tenants** and click the blue edit icon on the default tenant. Set the **Issuer** to your application domain (e.g. `your.fusionauth.application.com`) and save it by clicking the blue floppy disk icon in the top right corner of the page.
 
-> @TODO
+Now, go to **Applications** and click the green `+` icon to create a new application named `Supabase`. Select the **OAuth** tab and put `http://localhost:3000/api/auth/callback/fusionauth` in **Authorized redirect URLs**. This will be handled by your Next.js application soon. Go to the **JWT** tab, click the **Enabled** switch, change **Access token signing key** to `Auto generate a new key on save...` and save the application.
 
-### Register the user
+When you are redirected back to the **Applications** page, locate the application you created and click the green magnifying glass to view its details. Find the **OAuth configuration** section and write down both `Client Id` and `Client secret`.
 
-> @TODO
+You need to register your user for the application you created. Navigate to the **Users** tab and find your user. Click on the black **Manage User** button under the **Action** heading in the list and then on **Add registration** to save your user.
 
 ### Kickstart
 
@@ -31,7 +31,7 @@ Here's an example [Kickstart file](https://github.com/FusionAuth/fusionauth-exam
 
 ## Step 2: Setting up a Next.js application
 
-> There is a demo application in this [GitHub repository](https://github.com/FusionAuth/fusionauth-example-supabase) that you can clone and skip to [Step 10: Configuring environment variables](#step-10-configuring-environment-variables).
+> There is a demo project in this [GitHub repository](https://github.com/FusionAuth/fusionauth-example-supabase) that you can clone instead of manually creating the application.
 
 If you don't have a Next.js application already, create one by running the command below.
 
@@ -40,7 +40,7 @@ $ npx create-next-app name-of-your-application
 ```
 > If it is your first time creating a Next.js application, you'll be prompted to install `create-next-app`. Just type `y` to accept it.
 
-You can answer the questions from the wizard any way you want, but here are the ones that we used in our demo project.
+You can answer the questions from the wizard any way you want, but here are the ones that we used in our demo application.
 
 ```
 ✔ Would you like to use TypeScript with this project? … No
@@ -50,7 +50,7 @@ You can answer the questions from the wizard any way you want, but here are the 
 ✔ What import alias would you like configured? … @/*
 ```
 
-There are several ways of [implementing authentication with Next.js](https://nextjs.org/docs/authentication). In this article, we'll use [NextAuth.js](https://next-auth.js.org), a complete open-source authentication solution. Install it by running:
+There are several ways of [implementing authentication with Next.js](https://nextjs.org/docs/authentication). We'll use [NextAuth.js](https://next-auth.js.org), a complete open-source authentication solution, which can be installed running:
 
 ```shell
 $ npm install next-auth
@@ -74,8 +74,6 @@ export const authOptions = {
 };
 export default NextAuth(authOptions);
 ```
-
-### Exposing session state
 
 Change `src/pages/_app.js` to have your application rendered inside a `<SessionProvider>` context, like shown below.
 
@@ -146,21 +144,21 @@ Log in to your [Supabase account](https://app.supabase.com/), and click `New pro
 
 Click the [Table editor](https://app.supabase.com/project/_/editor) icon in the sidebar menu and select `Create a new table`.
 
-1. Name it `events`
-2. Make sure **Enable Row Level Security (RLS)** is checked _(you'll see more about this in the next step)_
-3. For every field below, click `Add column`, fill in the name and click the cog icon to edit its properties and uncheck **Is Nullable**
-    | Field     | Type        |
-    |-----------|-------------|
-    | `title`   | text        |
-    | `date`    | timestamptz |
-    | `user_id` | text        |
-4. Click **Save**
+1. Name it `events`.
+2. Make sure **Enable Row Level Security (RLS)** is checked _(you'll see more about this in the next step)_.
+3. For every field below, click `Add column`, fill in the name and click the cog icon to edit its properties and uncheck **Is Nullable**.
+    | Field     | Type          |
+    |-----------|---------------|
+    | `title`   | `text`        |
+    | `date`    | `timestamptz` |
+    | `user_id` | `text`        |
+4. Click **Save**.
 
 ![Creating table](/docs/img/guides/integrations/fusionauth/create-table.png)
 
 To make things simpler, we won't go through how to insert data into your Supabase table via your web application, but you can take a look [at these docs](https://supabase.com/docs/reference/javascript/insert). To populate your table, you'll have to manually insert data into it.
 
-Before doing this, you need to grab the **User Ids** from your FusionAuth instance, by going to **Users** and clicking **Manage** *(the blueish card icon)* to see the details for a user.
+Before doing this, you need to grab the **User Ids** from your FusionAuth application, by going to **Users** and clicking **Manage** *(the blueish card icon)* to see the details for a user.
 
 ![Users page](/docs/img/guides/integrations/fusionauth/users-manage.png)
 
@@ -273,11 +271,7 @@ With these changes, the session object now has an `accessToken` property contain
 
 ## Step 9: Fetching data from Supabase
 
-> @TODO
-> @TODO
-> @TODO
-
-Once you are done configuring the app, add `@supabase/supabase-js` as a dependency to the project by running:
+Add `@supabase/supabase-js` as a dependency to the project by running:
 
 ```shell
 $ npm install next-auth @supabase/supabase-js
@@ -390,7 +384,7 @@ export default function Home ({ events }) {
 Paste the contents below into a new `.env.local` file and replace everything between quotes with the information you copied from the Supabase API settings and your FusionAuth instance.
 
 ```dotenv
-FUSIONAUTH_ISSUER="<APP ISSUER FROM FUSIONAUTH>" # example: my-website.com
+FUSIONAUTH_ISSUER="<TENANT ISSUER FROM FUSIONAUTH>"
 FUSIONAUTH_CLIENT_ID="<APP CLIENT ID FROM FUSIONAUTH>"
 FUSIONAUTH_CLIENT_SECRET="<APP CLIENT SECRET FROM FUSIONAUTH>"
 FUSIONAUTH_TENANT_ID="<TENANT ID>" # Leave blank if you only have the default tenant
@@ -408,6 +402,9 @@ It's finally time to wrap everything up and test the application! Start the web 
 By implementing insert, update and delete operations, you should have a working application that can use all of FusionAuth power to manage your users without having to worry about handling authentication and authorization anymore.
 
 ## Resources
+
+- [FusionAuth blog](https://fusionauth.io/blog?utm_source=supabase&utm_medium=guide)
+- [FusionAuth documentation](https://fusionauth.io/docs?utm_source=supabase&utm_medium=guide)
 
 export const Page = ({ children }) => <Layout meta={meta} children={children} />
 
