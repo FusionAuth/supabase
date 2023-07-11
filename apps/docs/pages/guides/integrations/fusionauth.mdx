@@ -13,32 +13,53 @@ In this article, you will see how to build a simple web application to list even
 
 ## Step 1: Configuring FusionAuth
 
-If you don't have a FusionAuth instance already, go through the [5-Minute Setup Guide](https://fusionauth.io/docs/v1/tech/5-minute-setup-guide) to install FusionAuth in your machine. You have a few ways of doing so, but we recommend [using Docker](https://fusionauth.io/docs/v1/tech/getting-started/5-minute-docker).
+If you don't have a FusionAuth instance already, go through the [Docker installation guide](https://fusionauth.io/docs/v1/tech/installation-guide/docker) to install FusionAuth in your machine. If you don't want to run it on Docker, [there are other options](https://fusionauth.io/docs/v1/tech/installation-guide/).
 
-In your FusionAuth administration interface, browse to **Tenants** and click the blue edit icon on the default tenant. Set the **Issuer** to your application domain (e.g. `your.fusionauth.application.com`) and save it by clicking the blue floppy disk icon in the top right corner of the page.
+In the [administration interface](http://localhost:9011), browse to **Tenants** and click the blue edit icon on the default tenant. Set the **Issuer** to your FusionAuth instance domain (e.g. `auth.example.com`) and save it by clicking the blue floppy disk icon in the top right corner of the page.
 
-Now, go to **Applications** and click the green `+` icon to create a new application named `Supabase`. Select the **OAuth** tab and put `http://localhost:3000/api/auth/callback/fusionauth` in **Authorized redirect URLs**. This will be handled by your Next.js application soon. Go to the **JWT** tab, click the **Enabled** switch, change **Access token signing key** to `Auto generate a new key on save...` and save the application.
+Now, you'll create an application.
+
+- Browse to **Applications** and click the green `+` icon to create a new application.
+- Name it `Supabase`.
+- Select the **OAuth** tab and put `http://localhost:3000/api/auth/callback/fusionauth` in **Authorized redirect URLs** _(this will be handled by your Next.js application soon)_.
+- Go to the **JWT** tab and click the **Enabled** switch.
+- Change **Access token signing key** to `Auto generate a new key on save...`.
+- Save the application.
 
 When you are redirected back to the **Applications** page, locate the application you created and click the green magnifying glass to view its details. Find the **OAuth configuration** section and capture both the`Client Id` and `Client secret`.
 
-You need to register your user for the application you created. Navigate to the **Users** tab and find your user. Click on the black **Manage User** button under the **Action** heading in the list and then on **Add registration** to save your user.
+You need to register your user for the created `Supabase` application.
+
+- Navigate to the **Users** tab and find your user.
+- Click on the black **Manage User** button under the **Action** heading in the list.
+- Copy the **User Id** as you'll need this value later.
+- Click on **Add registration**.
+    - If you only have one application, it will be automatically selected under **Application**. If you have more than one, you need to select it.
+- Save your user.
+
+Now that you are back to the **Users** page, create another user to demonstrate the different records being shown to different users. Click the green `*` icon to create a new user and repeat the steps above to register it for the application.
 
 ### Kickstart
 
 Instead of manually setting up FusionAuth using the admin UI as you did above, you can use Kickstart. This tool allows you to get going quickly if you have a fresh installation of FusionAuth. Learn more about how to use [Kickstart](https://fusionauth.io/docs/v1/tech/installation-guide/kickstart).
 
-Here's an example [Kickstart file](https://github.com/FusionAuth/fusionauth-example-nextjs-single-sign-on/blob/main/kickstart/kickstart.json) which sets up FusionAuth for this tutorial.
+Here's an example [Kickstart file](https://github.com/FusionAuth/fusionauth-example-supabase/blob/main/kickstart/kickstart.json) which sets up FusionAuth for this tutorial.
 
 ## Step 2: Setting up a Next.js application
 
-> There is a demo project in this [GitHub repository](https://github.com/FusionAuth/fusionauth-example-supabase) that you can clone instead of manually creating the application.
+<Admonition type="tip">
+There is a demo project in this [GitHub repository](https://github.com/FusionAuth/fusionauth-example-supabase) that you can clone instead of manually creating the application.
+</Admonition>
 
 If you don't have a Next.js application already, create one by running the command below.
 
 ```shell
-$ npx create-next-app name-of-your-application
+npx create-next-app name-of-your-application
 ```
-> If it is your first time creating a Next.js application, you'll be prompted to install `create-next-app`. Just type `y` to accept it.
+
+<Admonition type="note">
+If it is your first time creating a Next.js application, you'll be prompted to install `create-next-app`. Just type `y` to accept it.
+</Admonition>
 
 You can answer the questions from the wizard any way you want, but here are the ones that we used in our demo application.
 
@@ -53,7 +74,7 @@ You can answer the questions from the wizard any way you want, but here are the 
 There are several ways of [implementing authentication with Next.js](https://nextjs.org/docs/authentication). We'll use [NextAuth.js](https://next-auth.js.org), a complete open-source authentication solution, which can be installed running:
 
 ```shell
-$ npm install next-auth
+npm install next-auth
 ```
 
 Create folder `src/pages/api/auth` and a file named exactly like `[...nextauth].js` there to configure the [built-in support for FusionAuth](https://next-auth.js.org/providers/fusionauth). This will make every request to `/api/auth/*` handled by NextAuth.js.
@@ -156,11 +177,7 @@ Click the [Table editor](https://app.supabase.com/project/_/editor) icon in the 
 
 ![Creating table](/docs/img/guides/integrations/fusionauth/create-table.png)
 
-To make things simpler, we won't discuss how to insert data into your Supabase table via your web application, but you can take a look [at these docs](https://supabase.com/docs/reference/javascript/insert). 
-
-But don't forget to populate a few events into your table. You can insert data into it using the API above or manually add it.
-
-Before adding the rows in supabase, you need to grab the **User Ids** from your FusionAuth application, by going to **Users** and clicking **Manage** *(the blueish card icon)* to see the details for a user.
+To make things simpler, we'll only show how to manually data using the web interface, but you can take a look [at these docs](https://supabase.com/docs/reference/javascript/insert) to see how to do that in your code.
 
 ![Users page](/docs/img/guides/integrations/fusionauth/users-manage.png)
 
@@ -173,10 +190,10 @@ Go back to your Supabase dashboard, click [Table editor](https://app.supabase.co
 - Leave the `id` empty.
 - Fill something in the `title`, like `supabase conference`.
 - Select any `date`.
-- Paste the **User Id** you copied from FusionAuth in `user_id`.
+- Paste the **User Id** you copied from your FusionAuth user in `user_id`.
 - Click `Save`.
 
-You should repeat these steps and insert at least one more record for a different user.
+You should repeat these steps and insert at least one more record for the other user you created previously.
 
 ![Inserting row in Supabase](/docs/img/guides/integrations/fusionauth/insert-row.png)
 
@@ -222,7 +239,7 @@ To issue a JWT that Supabase can trust, we need to import your project secret to
   <source src="/docs/img/guides/integrations/fusionauth/key-master-jwt.mp4" type="video/mp4"/>
 </video>
 
- To do this, change `src/pages/api/auth/[...nextauth].js` to add some [callbacks](https://next-auth.js.org/configuration/callbacks), which are ways of personalizing your NextAuth.js session. We have provided some comments directly in code to better explain what is going on.
+ Change `src/pages/api/auth/[...nextauth].js` to add some [callbacks](https://next-auth.js.org/configuration/callbacks), which are ways of personalizing your NextAuth.js session. We have provided some comments directly in code to better explain what is going on.
 
 ```jsx
 import FusionAuthClient from '@/utils/fusionauth';
@@ -233,7 +250,10 @@ export const authOptions = {
     async jwt({ token }) {
       if (!token.accessToken) {
         /**
-         * Creating a new JWT for Supabase and using their claims as base
+         * Creating a new JWT for Supabase and using their claims as base.
+         * As it must have the "aud" claim as "authenticated", we need to use
+         * FusionAuth's Vending API to issue a JWT with this specific value.
+         *
          * @link https://supabase.com/docs/learn/auth-deep-dive/auth-deep-dive-jwts
          * @link https://supabase.com/docs/learn/auth-deep-dive/auth-policies
          * @type {string}
@@ -245,10 +265,12 @@ export const authOptions = {
                iss: 'My Supabase application',
                // The sub claim is usually what we use to match the JWT to rows in your database
                sub: token.sub,
-               // The authenticated role is special in Supabase, it tells the API that this is an authenticated user
-               // and will know to compare the JWT against any policies you've added to the requested resource (table or row).
+               // The "authenticated" role is special in Supabase, it tells the API that this is an authenticated user
+               // and will know to compare the JWT against any policies you've added to the requested resource (table or
+               // row).
                aud: 'authenticated',
             },
+            // You'll create this environment variable later
             keyId: process.env.FUSIONAUTH_JWT_KEY_ID,
             timeToLiveInSeconds: 3600, // 1 hour
            });
@@ -276,7 +298,7 @@ With these changes, the session object now has an `accessToken` property contain
 Add `@supabase/supabase-js` as a dependency to the project by running:
 
 ```shell
-$ npm install next-auth @supabase/supabase-js
+npm install next-auth @supabase/supabase-js
 ```
 
 Create a `src/utils/supabase.js` file to return a Supabase client by informing your account URL, the anon public key and the JWT you generated in the previous step. These values will actually be stored in environment variables, which will be configured soon.
