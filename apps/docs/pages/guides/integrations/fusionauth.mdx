@@ -9,7 +9,7 @@ export const meta = {
 
 [FusionAuth](https://fusionauth.io) is the authentication and authorization platform built for developers, by developers. It solves the problem of building essential user security without distracting from the primary application.
 
-In this article, you will see how to build a simple web application to list events using FusionAuth, Supabase, and Next.js, a web application framework built on top of React. We will use FusionAuth to handle user authentication and issue a JWT that will be used by Supabase's [Row Level Security (RLS)](https://www.postgresql.org/docs/current/ddl-rowsecurity.html) policies to only return events from that specific user.
+In this article, you will see how to build a simple web application to list events using FusionAuth, Supabase, and Next.js, a web application framework built on top of React. We will use FusionAuth to handle user authentication and issue a JWT that will be used by Supabase's [Row Level Security (RLS)](https://www.postgresql.org/docs/current/ddl-rowsecurity.html) policies to return events from that specific user.
 
 ## Step 1: Configuring FusionAuth
 
@@ -19,7 +19,7 @@ In your FusionAuth administration interface, browse to **Tenants** and click the
 
 Now, go to **Applications** and click the green `+` icon to create a new application named `Supabase`. Select the **OAuth** tab and put `http://localhost:3000/api/auth/callback/fusionauth` in **Authorized redirect URLs**. This will be handled by your Next.js application soon. Go to the **JWT** tab, click the **Enabled** switch, change **Access token signing key** to `Auto generate a new key on save...` and save the application.
 
-When you are redirected back to the **Applications** page, locate the application you created and click the green magnifying glass to view its details. Find the **OAuth configuration** section and write down both `Client Id` and `Client secret`.
+When you are redirected back to the **Applications** page, locate the application you created and click the green magnifying glass to view its details. Find the **OAuth configuration** section and capture both the`Client Id` and `Client secret`.
 
 You need to register your user for the application you created. Navigate to the **Users** tab and find your user. Click on the black **Manage User** button under the **Action** heading in the list and then on **Add registration** to save your user.
 
@@ -130,7 +130,7 @@ export default function Home() {
 
 ## Step 3: Creating an API Key in FusionAuth
 
-To allow calling the FusionAuth API from your application, navigate to `Settings > API Keys` in your instance and click the green `+` icon to add a new API Key. In the `Endpoints` table, enable POST for the `/api/jwt/vend` resource and save it by clicking the blue floppy disk icon.
+To allow calling the FusionAuth API from your application, navigate to `Settings > API Keys` in your instance and click the green `+` icon to add a new API Key. In the `Endpoints` table, enable `POST` for the `/api/jwt/vend` endpoint and save it by clicking the blue floppy disk icon.
 
 ![Creating new API Key](/docs/img/guides/integrations/fusionauth/api-key-vend-jwt.png)
 
@@ -156,9 +156,11 @@ Click the [Table editor](https://app.supabase.com/project/_/editor) icon in the 
 
 ![Creating table](/docs/img/guides/integrations/fusionauth/create-table.png)
 
-To make things simpler, we won't go through how to insert data into your Supabase table via your web application, but you can take a look [at these docs](https://supabase.com/docs/reference/javascript/insert). To populate your table, you'll have to manually insert data into it.
+To make things simpler, we won't discuss how to insert data into your Supabase table via your web application, but you can take a look [at these docs](https://supabase.com/docs/reference/javascript/insert). 
 
-Before doing this, you need to grab the **User Ids** from your FusionAuth application, by going to **Users** and clicking **Manage** *(the blueish card icon)* to see the details for a user.
+But don't forget to populate a few events into your table. You can insert data into it using the API above or manually add it.
+
+Before adding the rows in supabase, you need to grab the **User Ids** from your FusionAuth application, by going to **Users** and clicking **Manage** *(the blueish card icon)* to see the details for a user.
 
 ![Users page](/docs/img/guides/integrations/fusionauth/users-manage.png)
 
@@ -169,7 +171,7 @@ Copy the **User Id** from that page.
 Go back to your Supabase dashboard, click [Table editor](https://app.supabase.com/project/_/editor) in the main navigation and select the `events` table in the second sidebar that appeared. Click the `Insert` green button and select `Insert row` to create a new record.
 
 - Leave the `id` empty.
-- Fill something in the `title`.
+- Fill something in the `title`, like `supabase conference`.
 - Select any `date`.
 - Paste the **User Id** you copied from FusionAuth in `user_id`.
 - Click `Save`.
@@ -182,7 +184,7 @@ You should repeat these steps and insert at least one more record for a differen
 
 [Row Level Security (RLS)](https://www.postgresql.org/docs/current/ddl-rowsecurity.html) is a feature from PostgreSQL that restricts which rows can be returned or modified by queries according to the logged in user. This is possible by creating a *Policy*, that is an expression that evaluates to a Boolean value and can be specified to apply to `ALL` commands, or to `SELECT`, `INSERT`, `UPDATE`, or `DELETE`.
 
-For this application, you'll need to extract the `User Id` from the session JWT. Create an SQL function by clicking [SQL editor](https://app.supabase.com/project/_/sql) in the sidebar, pasting the contents below and hitting `RUN`.
+For this application, you'll extract `User Id` from the JWT to determine which data to show. Create an SQL function by clicking [SQL editor](https://app.supabase.com/project/_/sql) in the sidebar, pasting the contents below and hitting `RUN`.
 
 ```sql
 CREATE OR REPLACE FUNCTION get_user_id_from_jwt() RETURNS text AS $$
@@ -190,7 +192,7 @@ SELECT NULLIF(current_setting('request.jwt.claims', true)::json->>'sub', '')::te
 $$ LANGUAGE SQL stable;
 ```
 
-This will create a `get_user_id_from_jwt()` function that extracts the `sub` claim from the current session JWT, which is where your application will store the `User Id` in. Now, you need to create a policy by navigating to `Authentication > Policies`, clicking `New policy` for your `events` table, and selecting `For full customization` to create a policy from scratch.
+This will create a `get_user_id_from_jwt()` function that extracts the `sub` claim from the current session JWT, which is where the NextJS application stores the `User Id`. Then, create a policy in Supabase by navigating to `Authentication > Policies`, clicking `New policy` for your `events` table, and selecting `For full customization` to create a policy from scratch.
 
 Give it a meaningful name, like *"Users can only manage their own events"*, select `ALL` as **Allowed operation** and set both **USING expression** and **WITH CHECK expression** as `get_user_id_from_jwt() = user_id` to call the function created above to extract the **User Id** and match it against the table's `user_id` column. Click `Review` and finally `Save policy` to finish editing it.
 
@@ -302,7 +304,7 @@ const createSupabaseClient = (accessToken = null) => {
 export {createSupabaseClient};
 ```
 
-You should fetch rows from your Supabase tables and pass them to the frontend page using Next's `getServerSideProps()` hook. Change `src/pages/index.js` and add the code below to check if the current session is valid and whether it has the issued JWT from before. If so, it'll call the Supabase API to retrieve data from the `events` table we created in the beginning of this article.
+You should fetch rows from your Supabase tables and pass them to the frontend page using Next's `getServerSideProps()` hook. Change `src/pages/index.js` and add the code below to check if the current session is valid and whether it has a JWT. If so, it'll call the Supabase API to retrieve data from the `events` table we created in the beginning of this article.
 
 ```jsx
 import {authOptions} from '@/pages/api/auth/[...nextauth]';
