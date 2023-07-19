@@ -1,4 +1,5 @@
 import Layout from '~/layouts/DefaultGuideLayout'
+import Image from 'next/image'
 
 export const meta = {
   id: 'fusionauth',
@@ -51,7 +52,10 @@ Here's an example [Kickstart file](https://github.com/FusionAuth/fusionauth-exam
 There is a demo project in this [GitHub repository](https://github.com/FusionAuth/fusionauth-example-supabase) that you can clone instead of manually creating the application.
 </Admonition>
 
-If you don't have a Next.js application already, create one by running the command below.
+
+First, make sure you have [Node.js](https://nodejs.org/) installed.
+
+Create a Next.js application by running the command below.
 
 ```shell
 npx create-next-app name-of-your-application
@@ -151,7 +155,7 @@ export default function Home() {
 
 ## Step 3: Creating an API Key in FusionAuth
 
-To allow calling the FusionAuth API from your application, navigate to `Settings > API Keys` in your instance and click the green `+` icon to add a new API Key. In the `Endpoints` table, enable `POST` for the `/api/jwt/vend` endpoint and save it by clicking the blue floppy disk icon.
+Your application will need to call the FusionAuth API to obtain a custom JWT with the needed claims for Supabase authorization. This request demands an API Key, which can be created by navigating to `Settings > API Keys` in your FusionAuth instance and clicking the green `+` icon. In the `Endpoints` table, enable `POST` for the `/api/jwt/vend` endpoint and save it by clicking the blue floppy disk icon.
 
 ![Creating new API Key](/docs/img/guides/integrations/fusionauth/api-key-vend-jwt.png)
 
@@ -175,17 +179,9 @@ Click the [Table editor](https://app.supabase.com/project/_/editor) icon in the 
     | `user_id` | `text`        |
 4. Click **Save**.
 
-![Creating table](/docs/img/guides/integrations/fusionauth/create-table.png)
+<Image src="/docs/img/guides/integrations/fusionauth/create-table.png" alt="Creating table" width={671} height={936} />
 
-To make things simpler for this tutorial, we'll only manually add data using the web interface. You can take a look [at these docs](https://supabase.com/docs/reference/javascript/insert) to see how to add data using code.
-
-![Users page](/docs/img/guides/integrations/fusionauth/users-manage.png)
-
-Copy the **User Id** from that page.
-
-![User details page](/docs/img/guides/integrations/fusionauth/user-id.png)
-
-Go back to your Supabase dashboard, click [Table editor](https://app.supabase.com/project/_/editor) in the main navigation and select the `events` table in the second sidebar that appeared. Click the `Insert` green button and select `Insert row` to create a new record.
+Now that the `events` table is created, click the green `Insert` button and select `Insert row` to create a new record.
 
 - Leave the `id` empty.
 - Fill something in the `title`, like `supabase conference`.
@@ -195,7 +191,7 @@ Go back to your Supabase dashboard, click [Table editor](https://app.supabase.co
 
 Repeat these steps to insert at least one more record. For the second record, use the Id of the second user you created.
 
-![Inserting row in Supabase](/docs/img/guides/integrations/fusionauth/insert-row.png)
+<Image src="/docs/img/guides/integrations/fusionauth/insert-row.png" alt="Inserting row in Supabase" width={673} height={938} />
 
 ## Step 6: Writing a Row Level Security policy
 
@@ -405,7 +401,9 @@ export default function Home ({ events }) {
 
 As promised, in this section you will configure environment variables to pass secrets to your NextJS application.
 
-> If you have cloned our [demo application](https://github.com/FusionAuth/fusionauth-example-supabase), you can duplicate file `.env.local.dist` and create one named `.env.local` and replace the values there.
+<Admonition type="tip">
+If you have cloned our [demo application](https://github.com/FusionAuth/fusionauth-example-supabase), duplicate the file `.env.local.dist`, name it `.env.local` and replace the values there.
+</Admonition>
 
 Paste the contents below into a new `.env.local` file and replace everything between quotes with the information you copied from the Supabase API settings and your FusionAuth instance.
 
