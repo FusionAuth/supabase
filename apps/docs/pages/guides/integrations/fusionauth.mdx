@@ -18,7 +18,7 @@ If you don't have a FusionAuth instance already, go through the [Docker installa
 
 In the [administration interface](http://localhost:9011), browse to **Tenants** and click the blue edit icon on the default tenant. Set the **Issuer** to your FusionAuth instance domain (e.g. `auth.example.com`) and save it by clicking the blue floppy disk icon in the top right corner of the page.
 
-Now, you'll create an application.
+Now, you'll create an application. In FusionAuth, an application is anything a user can log into: a custom web app, commercial off the shelf software, a native app, or an API.
 
 - Browse to **Applications** and click the green `+` icon to create a new application.
 - Name it `Supabase`.
@@ -27,7 +27,7 @@ Now, you'll create an application.
 - Change **Access token signing key** to `Auto generate a new key on save...`.
 - Save the application.
 
-When you are redirected back to the **Applications** page, locate the application you created and click the green magnifying glass to view its details. Find the **OAuth configuration** section and capture both the `Client Id` and `Client secret`.
+When you are redirected back to the **Applications** page, locate the application you created and click the green magnifying glass to view its details. Find the **OAuth configuration** section and capture both the `Client Id` and `Client secret`. You'll use these in the Next.js application you'll build below.
 
 Now, register your user account for the newly created `Supabase` application.
 
@@ -38,7 +38,11 @@ Now, register your user account for the newly created `Supabase` application.
     - If you only have one application, it will be automatically selected under **Application**. If you have more than one, you need to select it.
 - Save your user.
 
-After saving your user, you are on the **Users** list page. Create another user to demonstrate that different records are restricted to different users. Click the green `*` icon to create a new user and repeat the steps above to register the account for the Supabase application.
+After saving your user, you are on the page listing **Users**.
+
+Create another user to demonstrate that different records are restricted to different users. 
+
+To do so, click the green `*` icon to create a new user. Then repeat the registration steps above to register the new user account for the `Supabase` application.
 
 ### Kickstart
 
@@ -51,7 +55,6 @@ Here's an example [Kickstart file](https://github.com/FusionAuth/fusionauth-exam
 <Admonition type="tip">
 There is a demo project in this [GitHub repository](https://github.com/FusionAuth/fusionauth-example-supabase) that you can clone instead of manually creating the application.
 </Admonition>
-
 
 First, make sure you have [Node.js](https://nodejs.org/) installed.
 
@@ -139,7 +142,7 @@ export default function Component() {
 }
 ```
 
-Then, change your home component located in `src/pages/index.js` to include the `<LoginButton />` component anywhere in the fragment.
+Then, change your home component located in `src/pages/index.js` to include the `<LoginButton />` component anywhere you want in the fragment.
 
 ```jsx
 // Other imports...
@@ -155,9 +158,15 @@ export default function Home() {
 
 ## Step 3: Creating an API Key in FusionAuth
 
-Your application will need to call the FusionAuth API to obtain a custom JWT with the needed claims for Supabase authorization. This request demands an API Key, which can be created by navigating to `Settings > API Keys` in your FusionAuth instance and clicking the green `+` icon. In the `Endpoints` table, enable `POST` for the `/api/jwt/vend` endpoint and save it by clicking the blue floppy disk icon.
+Your application will need to call the FusionAuth API to obtain a custom JWT with the required claims for Supabase authorization. The default JWT created by FusionAuth doesn't quite have the right claims. In particular, the `aud` claim in the FusionAuth JWT represents the FusionAuth application, but Supabase needs the `aud` claim to be the value `authenticated`.
+
+The API for the custom JWT needs an API Key, which can be created by navigating to `Settings > API Keys` in your FusionAuth instance and clicking the green `+` icon. In the `Endpoints` table, enable `POST` for the `/api/jwt/vend` endpoint and save it by clicking the blue floppy disk icon.
 
 ![Creating new API Key](/docs/img/guides/integrations/fusionauth/api-key-vend-jwt.png)
+
+<Admonition type="warning">
+This API Key can be used to create an arbitrary JWT signed by FusionAuth, so you'll want to keep it safe. This example stores it in an environment variable, but you can use a secrets manager or other solution as well.
+</Admonition>
 
 ## Step 4: Creating a project in Supabase
 
@@ -189,7 +198,7 @@ Now that the `events` table is created, click the green `Insert` button and sele
 - Paste the **User Id** you copied from your FusionAuth user in `user_id`.
 - Click `Save`.
 
-Repeat these steps to insert at least one more record. For the second record, use the Id of the second user you created.
+Repeat these steps to insert at least one more record. For the second record, use the Id of the second user you created. Feel free to create as many event records as you'd like!
 
 <Image src="/docs/img/guides/integrations/fusionauth/insert-row.png" alt="Inserting row in Supabase" width={673} height={938} />
 
@@ -223,7 +232,7 @@ Click `Project Settings` in the sidebar and select the `API` menu in the navigat
 
 ## Step 8: Issuing JWTs with Supabase's secret
 
-To issue a JWT that Supabase can trust, we need to import your project secret to your FusionAuth instance by browsing to `Settings > Key Master` and selecting `Import HMAC` in the top right button.
+To issue a JWT that Supabase can trust, we need to import your project `JWT Secret` to your FusionAuth instance by logging into FusionAuth. Then browsing to `Settings > Key Master` and selecting `Import HMAC` in the top right button.
 
 - Name it `My Supabase JWT Secret`, for instance.
 - Paste the contents from the `JWT Secret` you copied earlier.
