@@ -1,3 +1,6 @@
+# This is a managed file. Manual changes will be overwritten.
+# https://github.com/FusionAuth/fusionauth-public-repos/
+
 /studio/ @supabase/frontend
 /apps/www/ @supabase/frontend
 /apps/docs/ @supabase/docs
